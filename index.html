@@ -812,7 +812,7 @@ function startFlair() {
   gsap.from(c, { opacity: 0, duration: 1.6 });
   flair = { tl, el: c, kill() { tl.kill(); c.remove(); flair = null; } };
 }
-if (G && !reduce) startFlair();
+// startFlair() отключён по просьбе
 const CIRC = 2 * Math.PI * 52; ring.style.strokeDasharray = CIRC; ring.style.strokeDashoffset = CIRC;
 const hold = { p: 0 }; let holding = false, lastTick = 0, early = 0, lastMsg = "";
 const earlyMsgs = ["Эй, не отпускай 😄", "Ну держи крепче!", "Почти получилось, ещё раз", "Я никуда не тороплюсь 🙂"];
