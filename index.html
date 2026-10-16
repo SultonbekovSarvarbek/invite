@@ -50,7 +50,7 @@
   .bar { flex: 1; height: 3px; background: rgba(233,238,247,.22); border-radius: 2px; overflow: hidden; }
   .bar i { display: block; height: 100%; width: 0; background: var(--silver); box-shadow: 0 0 8px var(--ice); }
   .bar.done i { width: 100%; }
-  .bar.active i { animation: fill 5.5s linear forwards; }
+  .bar.active i { animation: fill 9s linear forwards; }
   @keyframes fill { to { width: 100%; } }
 
   #sound { position: absolute; top: max(26px, calc(env(safe-area-inset-top) + 14px)); right: 12px; z-index: 6;
@@ -635,10 +635,10 @@ function go(i) {
   world.shift(i, prev >= 0);
   barEls.forEach((b, k) => {
     b.classList.remove("active", "done"); void b.offsetWidth;
-    if (k < i) b.classList.add("done"); else if (k === i) { b.style.animationDuration = (5500 + d * 1000) + "ms"; b.classList.add("active"); }
+    if (k < i) b.classList.add("done"); else if (k === i) { b.style.animationDuration = (9000 + d * 1000) + "ms"; b.classList.add("active"); }
   });
   $("#hint").classList.toggle("hidden", i >= AUTO_SLIDES);
-  if (i < AUTO_SLIDES) timer = setTimeout(() => go(cur + 1), 5500 + d * 1000);
+  if (i < AUTO_SLIDES) timer = setTimeout(() => go(cur + 1), 9000 + d * 1000);
 }
 
 app.addEventListener("click", e => {
