@@ -153,6 +153,8 @@
     padding: 30px; cursor: pointer; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none;
     background: radial-gradient(120% 70% at 50% 30%, var(--mid) 0%, var(--deep) 45%, var(--bg) 100%);
     transition: opacity 1s, filter 1s, transform 1.2s cubic-bezier(.2,.7,.2,1); }
+  #flair { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; pointer-events: none; }
+  #cover > :not(canvas) { position: relative; z-index: 1; }
   #cover.gone { opacity: 0; filter: blur(14px); transform: scale(1.15); pointer-events: none; }
   #cover .c-small { font-size: 11px; letter-spacing: .34em; text-transform: uppercase; color: var(--ice); margin-bottom: 18px; }
   #cover .c-title { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: clamp(40px, 12vw, 56px); line-height: 1.05; margin: 0 0 44px;
@@ -761,6 +763,56 @@ app.addEventListener("pointermove", e => {
 /* ---------- обложка: зажми и держи ---------- */
 let started = false;
 const cover = $("#cover"), orb = $("#orb"), ring = $("#ring"), cTap = $("#cTap"), title = $(".c-title");
+/* ---------- фон обложки: цветные фигуры летят по спирали к центру (идея: GreenSock «Canvas particles») ---------- */
+let flair = null;
+function startFlair() {
+  const c = document.createElement("canvas"); c.id = "flair"; cover.prepend(c);
+  const ctx = c.getContext("2d"), dpr = Math.min(devicePixelRatio || 1, 2);
+  let cw, ch, radius, sz;
+  const pal = [["#2cff7a", "#1fb6ff"], ["#ff5bd6", "#ff9a4d"], ["#7a5cff", "#4fb3ff"], ["#ffb36b", "#ff6f91"], ["#3dffa0", "#00b8d9"], ["#ff6ec7", "#7873f5"], ["#b4ff4d", "#2dd4bf"], ["#4f6bff", "#b45cff"]];
+  const rr = (x, w, h, r) => { x.beginPath(); x.moveTo(-w + r, -h); x.arcTo(w, -h, w, h, r); x.arcTo(w, h, -w, h, r); x.arcTo(-w, h, -w, -h, r); x.arcTo(-w, -h, w, -h, r); x.closePath(); x.fill(); };
+  const shapes = [
+    x => { x.beginPath(); x.arc(0, 0, 72, 0, 7); x.fill(); },
+    x => { x.beginPath(); x.moveTo(0, -92); x.quadraticCurveTo(0, 0, 92, 0); x.quadraticCurveTo(0, 0, 0, 92); x.quadraticCurveTo(0, 0, -92, 0); x.quadraticCurveTo(0, 0, 0, -92); x.fill(); },
+    x => { [[-38, 0], [38, 0], [0, -38], [0, 38]].forEach(p => { x.beginPath(); x.arc(p[0], p[1], 42, 0, 7); x.fill(); }); },
+    x => { x.beginPath(); x.arc(0, -25, 78, 0, Math.PI); x.fill(); },
+    x => rr(x, 66, 66, 30),
+    x => { x.rotate(.6); rr(x, 40, 84, 40); },
+    x => { x.beginPath(); for (let i = 0; i < 24; i++) { const r = i % 2 ? 56 : 92, a = i / 24 * 6.2832; x.lineTo(Math.cos(a) * r, Math.sin(a) * r); } x.closePath(); x.fill(); },
+    x => { x.lineJoin = "round"; x.lineWidth = 34; x.strokeStyle = x.fillStyle; x.beginPath(); x.moveTo(0, -56); x.lineTo(58, 44); x.lineTo(-58, 44); x.closePath(); x.fill(); x.stroke(); },
+    x => { x.beginPath(); x.arc(0, 0, 82, 0, 7); x.fill(); x.globalCompositeOperation = "destination-out"; x.beginPath(); x.arc(34, -12, 66, 0, 7); x.fill(); },
+    x => { x.beginPath(); x.arc(-30, 30, 100, -Math.PI / 2, 0); x.arc(-30, 30, 46, 0, -Math.PI / 2, true); x.closePath(); x.fill(); },
+    x => { rr(x, 22, 80, 22); rr(x, 80, 22, 22); },
+    x => { x.beginPath(); x.arc(0, 0, 80, 0, 7); x.arc(0, 0, 40, 0, 7, true); x.fill("evenodd"); }
+  ];
+  const sprites = Array.from({ length: 24 }, (_, i) => {
+    const k = document.createElement("canvas"); k.width = k.height = 200; const x = k.getContext("2d");
+    const [a, b] = pal[(i * 3 + (i >> 3)) % pal.length], g = x.createLinearGradient(0, 0, 200, 200);
+    g.addColorStop(0, a); g.addColorStop(1, b); x.fillStyle = g; x.translate(100, 100); shapes[i % shapes.length](x); return k;
+  });
+  const ps = Array.from({ length: 99 }, (_, i) => ({ x: 0, y: 0, scale: 0, rotate: 0, img: sprites[i % sprites.length] }));
+  const size = () => {
+    cw = cover.clientWidth || innerWidth; ch = cover.clientHeight || innerHeight; c.width = cw * dpr; c.height = ch * dpr;
+    radius = Math.max(cw, ch); sz = Math.min(200, Math.max(110, cw * .3));
+  };
+  size();
+  const draw = () => {
+    ps.sort((a, b) => a.scale - b.scale);
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, c.width, c.height);
+    ps.forEach(p => {
+      ctx.setTransform(dpr, 0, 0, dpr, cw / 2 * dpr, ch / 2 * dpr); ctx.rotate(p.rotate);
+      ctx.drawImage(p.img, p.x, p.y, sz * p.scale, sz * p.scale);
+    });
+  };
+  const ang = i => (i / ps.length) * Math.PI * 2 - Math.PI / 2;
+  const tl = gsap.timeline({ onUpdate: draw }).fromTo(ps,
+    { x: i => Math.cos(ang(i) * 10) * radius, y: i => Math.sin(ang(i) * 10) * radius, scale: 1.1, rotate: 0 },
+    { duration: 5, ease: "sine", x: 0, y: 0, scale: 0, rotate: -3, stagger: { each: -.05, repeat: -1 } }, 0).seek(99);
+  addEventListener("resize", () => { size(); tl.invalidate(); });
+  gsap.from(c, { opacity: 0, duration: 1.6 });
+  flair = { tl, el: c, kill() { tl.kill(); c.remove(); flair = null; } };
+}
+if (G && !reduce) startFlair();
 const CIRC = 2 * Math.PI * 52; ring.style.strokeDasharray = CIRC; ring.style.strokeDashoffset = CIRC;
 const hold = { p: 0 }; let holding = false, lastTick = 0, early = 0, lastMsg = "";
 const earlyMsgs = ["Эй, не отпускай 😄", "Ну держи крепче!", "Почти получилось, ещё раз", "Я никуда не тороплюсь 🙂"];
@@ -770,6 +822,7 @@ function charge() {
   const p = hold.p;
   ring.style.strokeDashoffset = CIRC * (1 - p);
   world.chargeV = p; world.speed.v = world.base + p * p * 110;
+  if (flair) flair.tl.timeScale(1 + p * p * 7);
   if (playing && !started) audio.volume = Math.min(.6, .12 + p * .5);
   gsap.set(orb, { scale: 1 + .3 * p });
   gsap.set(title, { x: (Math.random() - .5) * p * 6, y: (Math.random() - .5) * p * 6 });
@@ -818,7 +871,7 @@ function openInvite(force) {
     .to(world.speed, { v: 260, duration: 1, ease: "power3.in" }, 0)
     .to(audio, { volume: .6, duration: 2 }, 0)
     .to("#flash", { opacity: 1, duration: .3, ease: "power2.in" }, .7)
-    .add(() => { gsap.set(cover, { display: "none" }); world.chargeV = 0; go(0); }, 1)
+    .add(() => { gsap.set(cover, { display: "none" }); if (flair) flair.kill(); world.chargeV = 0; go(0); }, 1)
     .to("#flash", { opacity: 0, duration: 1.3, ease: "power2.out" }, 1.05)
     .to(world.speed, { v: world.base, duration: 2.8, ease: "power3.out" }, 1);
 }
