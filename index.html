@@ -779,7 +779,7 @@ function charge() {
   lastTick = tick;
 }
 function press(e) {
-  if (started || holding) return;
+  if (started || holding || opening) return;
   holding = true; e.preventDefault();
   try { cover.setPointerCapture(e.pointerId); } catch (_) {}
   startMusic(.12);
@@ -794,8 +794,18 @@ function release() {
   gsap.fromTo(cTap, { x: -10 }, { x: 0, duration: .8, ease: "elastic.out(1,.3)" });
   if (navigator.vibrate) navigator.vibrate(0);
 }
-function openInvite() {
-  if (started) return; started = true;
+let opening = false;
+function openInvite(force) {
+  if (started || opening) return;
+  if (!force && audio.readyState < 4 && !audio.error) {
+    opening = true; say("загружаю музыку…"); startMusic(.12);
+    let fired = false;
+    const go2 = () => { if (fired) return; fired = true; opening = false; openInvite(true); };
+    audio.addEventListener("canplaythrough", go2, { once: true });
+    setTimeout(go2, 30000);
+    return;
+  }
+  started = true;
   startMusic();
   app.classList.remove("pre");
   if (!G) { cover.classList.add("gone"); setTimeout(() => go(0), 500); return; }
