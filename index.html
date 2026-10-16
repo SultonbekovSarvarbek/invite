@@ -220,6 +220,11 @@
     <p class="lyric line">3 reasons<br>to say yes</p>
     <p class="plain line">1. Там будет еда 🍽<br>2. Там буду я (минус, но небольшой)<br>3. Freddie бы точно одобрил</p>
   </section>
+  <!-- 4c -->
+  <section class="slide">
+    <p class="lyric line">One condition</p>
+    <p class="plain line">Прийти голодной 😄<br>Телефоны в сторону.<br>Ну, кроме фото еды 📸<br>Остальное беру на себя.</p>
+  </section>
   <!-- 5: финал, всё на одном слайде -->
   <section class="slide" id="askSlide">
     <p class="lyric line" id="askTitle">Say yes?</p>
@@ -271,7 +276,7 @@ if (G) document.documentElement.classList.add("g");
 const dpr = Math.min(devicePixelRatio || 1, 2);
 const app = $("#app");
 
-$("#askText").innerHTML = `${CONFIG.place}<br>Условие: прийти голодной 😄`;
+$("#askText").innerHTML = CONFIG.place;
 
 /* выбор даты и времени */
 const sel = { date: null, time: null };
@@ -319,7 +324,7 @@ split($(".c-title"), true);
 
 const slides = [...document.querySelectorAll(".slide")];
 const bars = $("#bars");
-const AUTO_SLIDES = 5;
+const AUTO_SLIDES = 6;
 slides.forEach((_, i) => { if (i < slides.length - 1) bars.insertAdjacentHTML("beforeend", `<div class="bar"><i></i></div>`); });
 const barEls = [...bars.children];
 
@@ -469,7 +474,7 @@ function initWorld() {
     const r = 8 + Math.floor(Math.random() * 24) * .85 + Math.random() * .2;
     return [[Math.cos(a) * r, rnd() * .2, Math.sin(a) * r], lerp3([.95, .97, 1], [.6, .72, .95], (r - 8) / 22)];
   });
-  const shapes = [galaxy([1, .93, .8], [.55, .72, 1]), saturn, helix, knot, nova, heart, vinyl, galaxy([1, .98, .85], [1, .72, .3])];
+  const shapes = [galaxy([1, .93, .8], [.55, .72, 1]), saturn, helix, knot, nova, vinyl, heart, galaxy([1, .98, .85], [1, .72, .3])];
 
   const galGeo = new THREE.BufferGeometry();
   const aFrom = new THREE.BufferAttribute(new Float32Array(shapes[0].pos), 3), aTo = new THREE.BufferAttribute(new Float32Array(shapes[0].pos), 3);
@@ -536,8 +541,8 @@ function initWorld() {
     { x: -2, y: -1, ry: .08, rz: -.03, gz: -70, gy: 9, rx: 0, sc: 1.3, al: .85, star: [.85, .7, 1], mid: "#35195a" },
     { x: 1, y: 2, ry: -.05, rz: .05, gz: -62, gy: 0, rx: 0, sc: 1, al: .85, star: [.7, 1, .9], mid: "#0f4a48" },
     { x: -1, y: 0, ry: .06, rz: 0, gz: -68, gy: 0, rx: 0, sc: 1.1, al: .8, star: [1, .75, .55], mid: "#5a2a12" },
-    { x: 0, y: -1, ry: 0, rz: -.04, gz: -58, gy: 2, rx: 0, sc: 1.1, al: .85, star: [1, .7, .85], mid: "#5a1838" },
     { x: 0, y: 0, ry: 0, rz: 0, gz: -58, gy: 6, rx: 1.15, sc: 1, al: .75, star: [.85, .9, 1], mid: "#2a3550" },
+    { x: 0, y: -1, ry: 0, rz: -.04, gz: -58, gy: 2, rx: 0, sc: 1.1, al: .85, star: [1, .7, .85], mid: "#5a1838" },
     { x: 0, y: 1, ry: 0, rz: .02, gz: -48, gy: 3, rx: 1.15, sc: 1.1, al: .9, star: [1, .93, .75], mid: "#5a4a1c" },
   ];
   const pose = Object.assign({}, poses[0]);
