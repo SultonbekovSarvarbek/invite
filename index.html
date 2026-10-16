@@ -780,6 +780,7 @@ function charge() {
 function press(e) {
   if (started || holding) return;
   holding = true; e.preventDefault();
+  try { cover.setPointerCapture(e.pointerId); } catch (_) {}
   startMusic(.12);
   gsap.killTweensOf(hold);
   gsap.to(hold, { p: 1, duration: 2.2, ease: "none", onUpdate: charge, onComplete: () => { holding = false; openInvite(); } });
@@ -812,7 +813,9 @@ function openInvite() {
 }
 if (G) {
   cover.addEventListener("pointerdown", press);
-  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => cover.addEventListener(ev, release));
+  ["pointerup", "pointercancel"].forEach(ev => { cover.addEventListener(ev, release); addEventListener(ev, release); });
+  cover.addEventListener("touchstart", e => e.preventDefault(), { passive: false });
+  cover.addEventListener("dragstart", e => e.preventDefault());
   cover.addEventListener("contextmenu", e => e.preventDefault());
   addEventListener("keydown", e => { if (!started && (e.key === "Enter" || e.key === " ")) openInvite(); });
 } else cover.addEventListener("click", openInvite);
