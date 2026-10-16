@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Dinner for Two</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,700;1,500;1,600&family=Montserrat:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #04060b;
+    --deep: #0b1222;
+    --mid: #1d2e52;
+    --silver: #e9eef7;
+    --ice: #a9c8ff;
+    --ice-2: #6f93d6;
+    --serif: "Cormorant Garamond", Georgia, "Times New Roman", serif;
+    --sans: "Montserrat", -apple-system, "Segoe UI", Arial, sans-serif;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; background: #000; color: var(--silver); font-family: var(--sans); font-weight: 300; }
+  body { display: flex; justify-content: center; align-items: center; overflow: hidden; }
+
+  #app {
+    position: relative; width: 100%; max-width: 440px; height: 100dvh; max-height: 860px;
+    background: radial-gradient(120% 70% at 50% 0%, var(--mid) 0%, var(--deep) 42%, var(--bg) 100%);
+    background-size: 100% 140%; animation: breathe 9s ease-in-out infinite alternate;
+    overflow: hidden; user-select: none;
+  }
+  @keyframes breathe { from { background-position: 50% 0%; filter: brightness(.9); } to { background-position: 50% 100%; filter: brightness(1.12); } }
+
+  /* белые лучи света */
+  .beam { position: absolute; top: -10%; width: 90%; height: 85%; pointer-events: none; mix-blend-mode: screen; opacity: .55;
+    background: conic-gradient(from 180deg at 50% 0%, transparent 0 160deg, rgba(200,220,255,.22) 175deg, transparent 190deg 360deg);
+    transform-origin: 50% 0; }
+  .beam.b1 { left: -25%; animation: sway 8s ease-in-out infinite alternate; }
+  .beam.b2 { right: -25%; animation: sway 11s ease-in-out infinite alternate-reverse; }
+  @keyframes sway { from { transform: rotate(-22deg); } to { transform: rotate(22deg); } }
+
+  canvas#gl, canvas#fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  canvas#gl { z-index: 0; }
+  canvas#fx { z-index: 8; }
+
+  #glow { position: absolute; left: 0; top: 0; width: 300px; height: 300px; z-index: 7; pointer-events: none; opacity: 0; mix-blend-mode: screen;
+    background: radial-gradient(circle, rgba(169,200,255,.28), transparent 65%); }
+
+  /* progress */
+  #bars { position: absolute; top: max(12px, env(safe-area-inset-top)); left: 12px; right: 12px; display: flex; gap: 4px; z-index: 5; }
+  .bar { flex: 1; height: 3px; background: rgba(233,238,247,.22); border-radius: 2px; overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--silver); box-shadow: 0 0 8px var(--ice); }
+  .bar.done i { width: 100%; }
+  .bar.active i { animation: fill 5.5s linear forwards; }
+  @keyframes fill { to { width: 100%; } }
+
+  #sound { position: absolute; top: max(26px, calc(env(safe-area-inset-top) + 14px)); right: 12px; z-index: 6;
+    background: rgba(0,0,0,.35); border: 1px solid rgba(169,200,255,.45); color: var(--ice);
+    border-radius: 999px; padding: 6px 12px; font-size: 13px; pointer-events: none; display: flex; align-items: center; gap: 8px; font-family: var(--sans); font-weight: 400; }
+  .eq { display: none; gap: 2px; align-items: flex-end; height: 12px; }
+  .eq i { width: 3px; background: var(--ice); border-radius: 1px; animation: eq 0.9s ease-in-out infinite; }
+  .eq i:nth-child(2) { animation-delay: .2s; } .eq i:nth-child(3) { animation-delay: .4s; } .eq i:nth-child(4) { animation-delay: .1s; }
+  @keyframes eq { 0%,100% { height: 3px; } 50% { height: 12px; } }
+  #sound.playing .eq { display: flex; }
+  #sound:not(.playing) { animation: hint 2.2s ease-in-out infinite; }
+
+  /* slides */
+  .slide { position: absolute; inset: 0; z-index: 1; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    text-align: center; padding: 70px 30px 60px; opacity: 0; filter: blur(10px); transform: scale(1.06); pointer-events: none;
+    transition: opacity .7s, filter .7s, transform .9s cubic-bezier(.2,.7,.2,1); }
+  .slide.show { opacity: 1; filter: none; transform: none; pointer-events: auto; }
+  .slide.show .line { animation: rise 1s cubic-bezier(.2,.7,.2,1) both; }
+  .slide.show .line:nth-child(2) { animation-delay: .5s; --b: .6s; }
+  .slide.show .line:nth-child(3) { animation-delay: 1.1s; --b: 1.4s; }
+  .slide.show .line:nth-child(4) { animation-delay: 1.9s; --b: 2s; }
+  @keyframes rise { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+
+  .lyric { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: clamp(34px, 10.5vw, 48px); line-height: 1.08; color: var(--silver);
+    text-shadow: 0 0 24px rgba(169,200,255,.35); margin: 0 0 26px; letter-spacing: .01em; }
+  .plain { font-family: var(--sans); font-weight: 300; font-size: clamp(15px, 4.4vw, 18px); line-height: 1.65; margin: 0; color: rgba(233,238,247,.9); letter-spacing: .02em; }
+  .plain.solo { font-size: clamp(19px, 5.6vw, 23px); line-height: 1.7; }
+
+  .w { display: inline-block; white-space: pre; }
+  .lyric .w { white-space: nowrap; }
+  .c { display: inline-block; will-change: transform, opacity; }
+  .slide .w { opacity: 0; }
+  .slide.show .w { animation: wordin .9s cubic-bezier(.2,.7,.2,1) both, glow 3.2s ease-in-out 2.4s infinite alternate;
+    animation-delay: calc(var(--b, 0s) + var(--i) * .13s), 2.4s; }
+  .slide.show .plain .w { animation: wordin .8s cubic-bezier(.2,.7,.2,1) both; animation-delay: calc(var(--b, 0s) + var(--i) * .06s); }
+  @keyframes wordin { from { opacity: 0; transform: translateY(14px) scale(.92); filter: blur(10px); } to { opacity: 1; transform: none; filter: blur(0); } }
+  @keyframes glow { from { text-shadow: 0 0 18px rgba(169,200,255,.25); } to { text-shadow: 0 0 34px rgba(190,215,255,.9); } }
+
+  .hint { position: absolute; z-index: 2; bottom: max(22px, env(safe-area-inset-bottom)); left: 0; right: 0; text-align: center; font-size: 11px; letter-spacing: .28em; text-transform: uppercase; color: rgba(233,238,247,.55);
+    animation: hint 2.2s ease-in-out infinite; }
+  @keyframes hint { 0%,100% { opacity: .3; transform: translateY(0); } 50% { opacity: .9; transform: translateY(-4px); } }
+
+  /* билет */
+  .tw { width: 100%; perspective: 900px; }
+  .ticket { width: 100%; background: linear-gradient(160deg, #ffffff, #dfe7f5 60%, #c9d6ee); color: #0b1222; border-radius: 18px; padding: 22px 20px 18px;
+    position: relative; box-shadow: 0 18px 50px rgba(0,0,0,.6), 0 0 44px rgba(169,200,255,.28);
+    transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); transition: transform .15s ease-out; transform-style: preserve-3d; }
+  .slide.show .ticket { animation: flip 1.3s cubic-bezier(.2,.8,.2,1) 0.1s backwards; }
+  @keyframes flip { from { transform: rotateX(-80deg) translateY(40px) scale(.85); opacity: 0; } to { transform: none; opacity: 1; } }
+  .ticket::before, .ticket::after { content: ""; position: absolute; top: 56%; width: 26px; height: 26px; background: var(--deep); border-radius: 50%; }
+  .ticket::before { left: -13px; } .ticket::after { right: -13px; }
+  .shine { position: absolute; inset: 0; border-radius: inherit; overflow: hidden; pointer-events: none; }
+  .shine::before { content: ""; position: absolute; top: -20%; bottom: -20%; width: 40%; left: -60%;
+    background: linear-gradient(100deg, transparent, rgba(255,255,255,.9), transparent); transform: skewX(-18deg);
+    animation: sweep 4.5s ease-in-out 1.6s infinite; }
+  /* голографический отблеск, следует за пальцем/мышью */
+  .shine::after { content: ""; position: absolute; inset: 0; opacity: var(--o, 0); transition: opacity .3s;
+    background:
+      radial-gradient(circle at var(--mx, 50%) var(--my, 0%), rgba(255,255,255,.75), transparent 42%),
+      linear-gradient(115deg, transparent 30%, rgba(150,200,255,.35) 44%, rgba(255,190,230,.3) 52%, rgba(190,255,230,.28) 60%, transparent 72%);
+    background-size: 100% 100%, 220% 100%; background-position: 0 0, var(--mx, 50%) 0; mix-blend-mode: soft-light; }
+  @keyframes sweep { 0% { left: -60%; } 40%,100% { left: 130%; } }
+  .t-top { font-size: 10px; letter-spacing: .34em; text-transform: uppercase; color: var(--ice-2); font-weight: 500; }
+  .t-title { font-family: var(--serif); font-size: 36px; font-weight: 700; font-style: italic; line-height: 1; margin: 8px 0 4px; }
+  .t-sub { font-size: 12px; letter-spacing: .04em; color: #4b5b7c; margin-bottom: 16px; }
+  .t-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 10px; text-align: left; padding-bottom: 16px; border-bottom: 2px dashed rgba(29,46,82,.3); }
+  .t-grid b { display: block; font-size: 9px; letter-spacing: .22em; text-transform: uppercase; color: var(--ice-2); font-weight: 500; margin-bottom: 2px; }
+  .t-grid span { font-size: 15px; font-weight: 400; display: block; min-height: 1.3em; }
+  .t-grid .wide { grid-column: 1 / -1; }
+  .t-foot { padding-top: 12px; font-family: var(--serif); font-size: 15px; font-style: italic; color: #4b5b7c; }
+
+  #answer { display: flex; gap: 12px; margin-top: 22px; width: 100%; position: relative; height: 54px; }
+  .btn { flex: 1; border: 0; border-radius: 999px; font-family: var(--sans); font-weight: 500; font-size: 15px; cursor: pointer; padding: 0 16px; }
+  #yes { background: linear-gradient(180deg, #ffffff, #cfdcf5); color: #0b1222; animation: pulse 2s ease-out infinite; }
+  #yes:active { transform: scale(.96); }
+  @keyframes pulse { 0% { box-shadow: 0 6px 22px rgba(169,200,255,.35), 0 0 0 0 rgba(200,220,255,.65); } 100% { box-shadow: 0 6px 22px rgba(169,200,255,.35), 0 0 0 18px rgba(200,220,255,0); } }
+  #no { background: transparent; color: var(--silver); border: 1px solid rgba(233,238,247,.4); position: relative; transition: transform .25s cubic-bezier(.3,1.6,.5,1); }
+
+  .pick { width: 100%; margin-top: 18px; }
+  .pick-label { font-size: 11px; letter-spacing: .24em; text-transform: uppercase; color: var(--ice); margin-bottom: 8px; transition: color .3s; }
+  .pick-label.warn { color: #ffd1a8; }
+  .chips { display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px 8px; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+  .chips::-webkit-scrollbar { display: none; }
+  .chip { flex: 0 0 auto; min-width: 54px; padding: 8px 12px; border-radius: 14px; border: 1px solid rgba(233,238,247,.35); background: rgba(0,0,0,.28);
+    color: var(--silver); font-family: var(--sans); font-weight: 400; font-size: 14px; text-align: center; cursor: pointer; transition: background .25s, color .25s, box-shadow .25s, transform .2s; }
+  .chip b { display: block; font-size: 19px; font-weight: 500; line-height: 1.1; }
+  .chip small { font-size: 10px; letter-spacing: .12em; text-transform: uppercase; opacity: .75; }
+  .chip.time { padding: 9px 14px; font-size: 15px; }
+  .chip:active { transform: scale(.94); }
+  .chip.sel { background: #fff; color: #0b1222; border-color: #fff; box-shadow: 0 0 20px rgba(200,220,255,.65); }
+  #yes.dim { opacity: .55; }
+  .tg { display: inline-block; margin-top: 28px; background: linear-gradient(180deg, #ffffff, #cfdcf5); color: #0b1222; text-decoration: none; font-weight: 500;
+    padding: 14px 28px; border-radius: 999px; font-size: 15px; animation: pulse 2s ease-out infinite; }
+
+  /* стартовая обложка: зажми и держи */
+  #app.pre #bars, #app.pre #sound, #app.pre .hint { visibility: hidden; }
+  #flash { position: absolute; inset: 0; z-index: 30; pointer-events: none; opacity: 0;
+    background: radial-gradient(circle at 50% 60%, #fff 0%, rgba(210,228,255,.95) 35%, rgba(169,200,255,.4) 70%, transparent 100%); }
+  #cover { position: absolute; inset: 0; z-index: 20; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center;
+    padding: 30px; cursor: pointer; touch-action: none; -webkit-touch-callout: none; -webkit-user-select: none;
+    background: radial-gradient(120% 70% at 50% 30%, var(--mid) 0%, var(--deep) 45%, var(--bg) 100%);
+    transition: opacity 1s, filter 1s, transform 1.2s cubic-bezier(.2,.7,.2,1); }
+  #cover.gone { opacity: 0; filter: blur(14px); transform: scale(1.15); pointer-events: none; }
+  #cover .c-small { font-size: 11px; letter-spacing: .34em; text-transform: uppercase; color: var(--ice); margin-bottom: 18px; }
+  #cover .c-title { font-family: var(--serif); font-style: italic; font-weight: 600; font-size: clamp(40px, 12vw, 56px); line-height: 1.05; margin: 0 0 44px;
+    text-shadow: 0 0 30px rgba(169,200,255,.5); }
+  .c-orb { position: relative; width: 120px; height: 120px; display: grid; place-items: center; border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,.28), rgba(255,255,255,.04) 70%); animation: orbGlow 2.4s ease-in-out infinite; }
+  .c-orb .core { width: 14px; height: 14px; border-radius: 50%; background: #fff; position: relative; box-shadow: 0 0 18px 6px rgba(190,215,255,.8); animation: corePulse 1.6s ease-in-out infinite; }
+  @keyframes corePulse { 0%,100% { transform: scale(.8); opacity: .75; } 50% { transform: scale(1.25); opacity: 1; } }
+  .c-orb svg { position: absolute; inset: 0; width: 100%; height: 100%; transform: rotate(-90deg); overflow: visible; }
+  .c-orb circle { fill: none; stroke-width: 3; }
+  .c-orb .trk { stroke: rgba(233,238,247,.22); }
+  .c-orb .bar { stroke: #fff; stroke-linecap: round; filter: drop-shadow(0 0 6px #a9c8ff); }
+  @keyframes orbGlow { 0%,100% { box-shadow: 0 0 20px rgba(169,200,255,.25), 0 0 0 0 rgba(200,220,255,.35); } 50% { box-shadow: 0 0 50px rgba(169,200,255,.55), 0 0 0 16px rgba(200,220,255,0); } }
+  #cover .c-tap { margin-top: 26px; font-size: 12px; letter-spacing: .26em; text-transform: uppercase; color: rgba(233,238,247,.7); min-height: 1.4em; }
+
+  /* ===== режим GSAP + Three.js (включается, если библиотеки загрузились) ===== */
+  .g .slide { transition: none; filter: none; transform: none; visibility: hidden; }
+  .g .slide.show { opacity: 0; }
+  .g .slide.on { pointer-events: auto; }
+  .g .slide .w { opacity: 1; }
+  .g #cover { background: radial-gradient(ellipse at 50% 50%, rgba(4,6,11,0) 25%, rgba(4,6,11,.75) 100%); transition: none; }
+  .g .ticket { transform: none; transition: none; animation: none !important; }
+  .g #no { transition: none; }
+
+  .hidden { display: none !important; }
+  @media (prefers-reduced-motion: reduce) {
+    #app, .beam, .hint, #yes, .tg, .shine::before { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+<div id="app" class="pre">
+  <div class="beam b1"></div><div class="beam b2"></div>
+  <canvas id="gl"></canvas>
+  <canvas id="fx"></canvas>
+  <div id="glow"></div>
+  <div id="bars"></div>
+  <div id="sound" aria-hidden="true"><span class="eq"><i></i><i></i><i></i><i></i></span><span id="soundTxt">🔊 коснись — включится музыка</span></div>
+  <audio id="song" loop autoplay playsinline preload="auto" src="song.mp3"></audio>
+
+  <!-- 1 -->
+  <section class="slide">
+    <p class="lyric line">A little message<br>from me</p>
+    <p class="plain line">Моё сообщение осталось без ответа.</p>
+  </section>
+  <!-- 2 -->
+  <section class="slide">
+    <p class="plain solo line">Просто хочу позвать тебя на ужин.</p>
+  </section>
+  <!-- 3 -->
+  <section class="slide">
+    <p class="lyric line">Good food,<br>good music</p>
+    <p class="plain line">Вкусная еда и приятный разговор.</p>
+  </section>
+  <!-- 4 -->
+  <section class="slide">
+    <p class="lyric line">Just one evening</p>
+    <p class="plain line">Один вечер: ты, я, стол на двоих<br>и официант, который сделает вид,<br>что нас не слушает 😄</p>
+  </section>
+  <!-- 4b -->
+  <section class="slide">
+    <p class="lyric line">3 reasons<br>to say yes</p>
+    <p class="plain line">1. Там будет еда 🍽<br>2. Там буду я (минус, но небольшой)<br>3. Freddie бы точно одобрил</p>
+  </section>
+  <!-- 5: финал, всё на одном слайде -->
+  <section class="slide" id="askSlide">
+    <p class="lyric line" id="askTitle">Say yes?</p>
+    <p class="plain line" id="askText"></p>
+    <div class="pick line" id="pick">
+      <div class="pick-label" id="pickLabel">Выбери, когда тебе удобно</div>
+      <div class="chips" id="dateChips"></div>
+      <div class="chips" id="timeChips"></div>
+    </div>
+    <div id="answer" class="line">
+      <button class="btn dim" id="yes">Я иду ✨</button>
+      <button class="btn" id="no">Подумаю</button>
+    </div>
+    <a class="tg line hidden" id="tgLink" target="_blank" rel="noopener">Написать «Я иду»</a>
+  </section>
+
+  <div class="hint" id="hint">нажми, чтобы дальше</div>
+
+  <div id="cover">
+    <div class="c-small">Для тебя · это не спам</div>
+    <h1 class="c-title">Тебе<br>приглашение</h1>
+    <div class="c-orb" id="orb">
+      <svg viewBox="0 0 120 120"><circle class="trk" cx="60" cy="60" r="52"/><circle class="bar" id="ring" cx="60" cy="60" r="52"/></svg>
+      <i class="core"></i>
+    </div>
+    <div class="c-tap" id="cTap">зажми и держи</div>
+  </div>
+  <div id="flash"></div>
+</div>
+
+<!-- GSAP (анимации текста и переходов) и Three.js (3D-космос). Если CDN недоступен, страница работает на CSS-анимациях. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ====== НАСТРОЙКИ: поменяй под себя ====== */
+const CONFIG = {
+  place: "Ресторан Lali",                       // место
+  times: ["18:00", "19:00", "19:30", "20:00", "21:00"], // варианты времени на выбор
+  days: 7,                                      // сколько дней показать на выбор
+  dateFrom: null,                               // первый день, например "2026-10-25"; null = с завтрашнего дня
+  telegram: "s_sarvar",                         // твой ник в Telegram без @
+};
+/* ========================================= */
+
+const $ = s => document.querySelector(s);
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const G = !!window.gsap, T = !!window.THREE;
+if (G) document.documentElement.classList.add("g");
+const dpr = Math.min(devicePixelRatio || 1, 2);
+const app = $("#app");
+
+$("#askText").innerHTML = `${CONFIG.place}<br>Условие: прийти голодной 😄`;
+
+/* выбор даты и времени */
+const sel = { date: null, time: null };
+(function buildPicker() {
+  const start = CONFIG.dateFrom ? new Date(CONFIG.dateFrom + "T12:00:00") : (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })();
+  const dc = $("#dateChips"), tc = $("#timeChips");
+  for (let i = 0; i < CONFIG.days; i++) {
+    const d = new Date(start); d.setDate(start.getDate() + i);
+    const b = document.createElement("button"); b.className = "chip"; b.type = "button";
+    b.innerHTML = `<small>${d.toLocaleDateString("ru-RU", { weekday: "short" })}</small><b>${d.getDate()}</b><small>${d.toLocaleDateString("ru-RU", { month: "short" }).replace(".", "")}</small>`;
+    b.dataset.label = d.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+    dc.append(b);
+  }
+  CONFIG.times.forEach(t => { const b = document.createElement("button"); b.className = "chip time"; b.type = "button"; b.textContent = t; tc.append(b); });
+  const pickOne = (box, key) => box.addEventListener("click", e => {
+    const c = e.target.closest(".chip"); if (!c) return;
+    box.querySelectorAll(".chip").forEach(x => x.classList.toggle("sel", x === c));
+    sel[key] = key === "date" ? c.dataset.label : c.textContent;
+    $("#pickLabel").classList.remove("warn"); $("#pickLabel").textContent = "Выбери, когда тебе удобно";
+    $("#yes").classList.toggle("dim", !(sel.date && sel.time));
+  });
+  pickOne(dc, "date"); pickOne(tc, "time");
+})();
+
+/* ---------- текст по словам и буквам ---------- */
+function split(el, chars) {
+  const nodes = [...el.childNodes]; el.textContent = ""; let i = 0;
+  nodes.forEach(n => {
+    if (n.nodeType === 3) {
+      n.textContent.split(/(\s+)/).forEach(t => {
+        if (!t) return;
+        if (!t.trim()) { el.append(t); return; }
+        const w = document.createElement("span");
+        w.className = "w"; w.style.setProperty("--i", i++);
+        if (chars) Array.from(t).forEach(ch => { const c = document.createElement("span"); c.className = "c"; c.textContent = ch; w.append(c); });
+        else w.textContent = t;
+        el.append(w);
+      });
+    } else el.append(n.cloneNode());
+  });
+}
+document.querySelectorAll(".slide .lyric").forEach(el => split(el, true));
+document.querySelectorAll(".slide .plain").forEach(el => split(el, false));
+split($(".c-title"), true);
+
+const slides = [...document.querySelectorAll(".slide")];
+const bars = $("#bars");
+const AUTO_SLIDES = 5;
+slides.forEach((_, i) => { if (i < slides.length - 1) bars.insertAdjacentHTML("beforeend", `<div class="bar"><i></i></div>`); });
+const barEls = [...bars.children];
+
+/* ---------- 3D-мир (Three.js) ---------- */
+const world = {
+  base: reduce ? 0 : 5,
+  speed: { v: reduce ? 0 : 5 },
+  shift() {},
+};
+if (T) try { initWorld(); } catch (e) { console.warn("WebGL недоступен, работаем без 3D", e); }
+
+function initWorld() {
+  const canvas = $("#gl");
+  const renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: false, powerPreference: "high-performance" });
+  renderer.setPixelRatio(dpr); renderer.setClearColor(0x000000, 0);
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(60, 1, .1, 400);
+  const uni = { uTravel: { value: 0 }, uTime: { value: 0 }, uPR: { value: dpr }, uStreak: { value: 0 }, uStarCol: { value: new THREE.Color(.8, .9, 1) } };
+
+  /* звёздный тоннель: звёзды бесконечно летят на камеру */
+  const N = 1800, sp = new Float32Array(N * 3), seed = new Float32Array(N);
+  for (let i = 0; i < N; i++) {
+    sp[i * 3] = (Math.random() - .5) * 100; sp[i * 3 + 1] = (Math.random() - .5) * 160; sp[i * 3 + 2] = -Math.random() * 300; seed[i] = Math.random();
+  }
+  const starGeo = new THREE.BufferGeometry();
+  starGeo.setAttribute("position", new THREE.BufferAttribute(sp, 3));
+  starGeo.setAttribute("aSeed", new THREE.BufferAttribute(seed, 1));
+  const stars = new THREE.Points(starGeo, new THREE.ShaderMaterial({
+    uniforms: uni, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+      attribute float aSeed; uniform float uTravel, uTime, uPR; varying float vA;
+      void main(){
+        vec3 p = position; p.z = mod(p.z + uTravel, 300.0) - 300.0;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+        float tw = .65 + .35 * sin(uTime * 1.6 + aSeed * 40.0);
+        gl_PointSize = min((1.3 + aSeed * 2.4) * uPR * (60.0 / -mv.z) * tw, 7.0 * uPR);
+        vA = (1.0 - (-p.z / 300.0)) * smoothstep(1.0, 8.0, -p.z);
+      }`,
+    fragmentShader: `
+      uniform vec3 uStarCol; varying float vA;
+      void main(){ float d = length(gl_PointCoord - .5); float a = smoothstep(.5, .0, d);
+        gl_FragColor = vec4(mix(uStarCol, vec3(1.0), .45), a * vA); }`,
+  }));
+  scene.add(stars);
+
+  /* штрихи за звёздами: при «прыжке» превращаются в линии скорости */
+  const lp = new Float32Array(N * 6), le = new Float32Array(N * 2);
+  for (let i = 0; i < N; i++) { for (let k = 0; k < 2; k++) { lp.set([sp[i*3], sp[i*3+1], sp[i*3+2]], (i*2+k)*3); le[i*2+k] = k; } }
+  const lineGeo = new THREE.BufferGeometry();
+  lineGeo.setAttribute("position", new THREE.BufferAttribute(lp, 3));
+  lineGeo.setAttribute("aEnd", new THREE.BufferAttribute(le, 1));
+  const lines = new THREE.LineSegments(lineGeo, new THREE.ShaderMaterial({
+    uniforms: uni, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+      attribute float aEnd; uniform float uTravel, uStreak; varying float vA;
+      void main(){
+        float z0 = mod(position.z + uTravel, 300.0) - 300.0;
+        vec3 p = vec3(position.xy, z0 - aEnd * uStreak);
+        vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+        vA = (1.0 - aEnd) * (1.0 - (-z0 / 300.0)) * smoothstep(1.0, 8.0, -z0);
+      }`,
+    fragmentShader: `uniform vec3 uStarCol; varying float vA; void main(){ gl_FragColor = vec4(mix(uStarCol, vec3(1.0), .45), vA * .9); }`,
+  }));
+  lines.visible = false; scene.add(lines);
+
+  /* частицы, которые перетекают из формы в форму на каждом слайде */
+  const GN = 6000;
+  const rnd = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
+  const lerp3 = (a, b, k) => [a[0] + (b[0] - a[0]) * k, a[1] + (b[1] - a[1]) * k, a[2] + (b[2] - a[2]) * k];
+  const hsl = (h, s, l) => { const c = new THREE.Color(); c.setHSL(h, s, l); return [c.r, c.g, c.b]; };
+  const rotZ = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0] * c - p[1] * s, p[0] * s + p[1] * c, p[2]]; };
+  const sphere = R => { const u = Math.random() * 2 - 1, a = Math.random() * 6.2832, s = Math.sqrt(1 - u * u); return [s * Math.cos(a) * R, u * R, s * Math.sin(a) * R]; };
+  function makeShape(fn) {
+    const pos = new Float32Array(GN * 3), col = new Float32Array(GN * 3);
+    for (let i = 0; i < GN; i++) { const o = fn(i); pos.set(o[0], i * 3); col.set(o[1], i * 3); }
+    return { pos, col };
+  }
+
+  /* спиральная галактика */
+  const galaxy = (inner, outer) => makeShape(i => {
+    const r = Math.pow(Math.random(), 1.7) * 30 + .5, ang = r * .38 + (i % 3) * 2.0944;
+    return [[Math.cos(ang) * r + rnd() * (1 + r * .12), rnd() * Math.max(.25, 1.3 - r * .03), Math.sin(ang) * r + rnd() * (1 + r * .12)],
+      lerp3(inner, outer, Math.min(r / 30, 1))];
+  });
+  /* планета с кольцами */
+  const saturn = makeShape(i => {
+    if (i < GN * .5) {
+      const p = sphere(10), band = Math.sin(p[1] * .7) * .5 + .5;
+      return [rotZ(p, -.38), lerp3([.95, .7, .32], [1, .93, .78], band)];
+    }
+    let r = 15 + Math.random() * 13; if (r > 20 && r < 21.8) r += 2.4;
+    const a = Math.random() * 6.2832;
+    return [rotZ([Math.cos(a) * r, rnd() * .25, Math.sin(a) * r], -.38), lerp3([1, .92, .72], [.72, .52, .28], (r - 15) / 13)];
+  });
+  /* чёрная дыра: диск раскалённого газа и светящееся кольцо вокруг пустоты */
+  const rotX = (p, a) => { const c = Math.cos(a), s = Math.sin(a); return [p[0], p[1] * c - p[2] * s, p[1] * s + p[2] * c]; };
+  const helix = makeShape(i => {
+    const q = i / GN, a = Math.random() * 6.2832;
+    if (q < .62) { /* аккреционный диск */
+      const r = 7 + Math.pow(Math.random(), 1.4) * 14, k = (r - 7) / 14;
+      return [rotX([Math.cos(a) * r, rnd() * .35 * (.4 + k), Math.sin(a) * r], .28), lerp3([1, 1, 1], [.65, .35, 1], Math.pow(k, .7))];
+    }
+    if (q < .9) { /* фотонное кольцо и линзированное свечение, смотрит на камеру */
+      const r = 6.2 + Math.abs(rnd()) * .9 + (Math.random() < .3 ? Math.random() * 2.5 : 0);
+      return [[Math.cos(a) * r, Math.sin(a) * r, rnd() * .4], lerp3([1, 1, 1], [.7, .85, 1], Math.random())];
+    }
+    const s = Math.random() < .5 ? 1 : -1; /* тонкие джеты вверх и вниз */
+    return [[rnd() * 1.2, s * (9 + Math.random() * 22), rnd() * 1.2], [.7, .75, 1]];
+  });
+  /* полумесяц со звёздами */
+  const knot = makeShape(i => {
+    if (i < GN * .1) return [[(Math.random() - .5) * 38, (Math.random() - .5) * 52, rnd() * 4], [1, 1, 1]];
+    let x, y;
+    do { const a = Math.random() * 6.2832, r = Math.sqrt(Math.random()); x = Math.cos(a) * r; y = Math.sin(a) * r; }
+    while (Math.hypot(x - .42, y - .1) < .8);
+    const k = Math.min(Math.hypot(x, y), 1);
+    return [rotZ([x * 16, y * 16, rnd() * 2.2 * (1.1 - k * .5)], -.45), lerp3([1, .97, .78], [1, .86, .5], k)];
+  });
+  /* сверхновая: яркое ядро и ударная оболочка */
+  const nova = makeShape(i => {
+    if (i < GN * .3) return [[rnd() * 5, rnd() * 5, rnd() * 5], [1, .95, .7]];
+    const d = sphere(1), r = 9 + Math.pow(Math.random(), .6) * 17;
+    return [[d[0] * r, d[1] * r, d[2] * r], lerp3([1, .6, .2], [1, .2, .6], (r - 9) / 17)];
+  });
+  /* роза: слои лепестков, стебель и листья */
+  const heart = makeShape(i => {
+    const q = i / GN;
+    if (q < .1) { /* стебель */
+      const y = -9 - Math.random() * 28;
+      return [[Math.sin(y * .12) * 2.2 + rnd() * .35, y, rnd() * .35], lerp3([.2, .65, .3], [.1, .45, .2], Math.random())];
+    }
+    if (q < .22) { /* два листа */
+      const side = i % 2 ? 1 : -1, s = Math.random() * 2 - 1, w = Math.sqrt(1 - s * s) * (Math.random() * 2 - 1);
+      const x = side * (5 + (s + 1) * 4.5), y = -19 + (s + 1) * 4.5 * .9 + w * 1.8 * 0;
+      return [[x + w * 1.2, y + Math.abs(w) * 3 * side * .0 + w * 2.2, rnd() * .5], lerp3([.15, .55, .25], [.45, .85, .45], Math.abs(w))];
+    }
+    /* бутон: 8 концентрических слоёв лепестков с волнистым краем, каждый повёрнут относительно соседнего */
+    const L = Math.floor(8 * Math.random()), th = Math.random() * 6.2832, R = 2.2 + L * 1.55;
+    const r = R * (1 + .2 * Math.cos(5 * th + L * .75)) * (.86 + .14 * Math.random());
+    const x = Math.cos(th) * r, y = Math.sin(th) * r + 8, z = (7 - L) * .9 + rnd() * .35;
+    return [[x, y, z], lerp3([1, .6, .7], [.55, .02, .1], L / 7 * .9 + Math.random() * .1)];
+  });
+  /* виниловая пластинка */
+  const vinyl = makeShape(i => {
+    const a = Math.random() * 6.2832;
+    if (i < GN * .12) { const r = Math.random() * 5.5; return [[Math.cos(a) * r, 0, Math.sin(a) * r], [1, .85, .55]]; }
+    const r = 8 + Math.floor(Math.random() * 24) * .85 + Math.random() * .2;
+    return [[Math.cos(a) * r, rnd() * .2, Math.sin(a) * r], lerp3([.95, .97, 1], [.6, .72, .95], (r - 8) / 22)];
+  });
+  const shapes = [galaxy([1, .93, .8], [.55, .72, 1]), saturn, helix, knot, nova, heart, vinyl, galaxy([1, .98, .85], [1, .72, .3])];
+
+  const galGeo = new THREE.BufferGeometry();
+  const aFrom = new THREE.BufferAttribute(new Float32Array(shapes[0].pos), 3), aTo = new THREE.BufferAttribute(new Float32Array(shapes[0].pos), 3);
+  const aColFrom = new THREE.BufferAttribute(new Float32Array(shapes[0].col), 3), aColTo = new THREE.BufferAttribute(new Float32Array(shapes[0].col), 3);
+  const dl = new Float32Array(GN), sz = new Float32Array(GN), rd = new Float32Array(GN * 3);
+  for (let i = 0; i < GN; i++) { dl[i] = Math.random() * .4; sz[i] = 1.1 + Math.random() * 2.6; rd.set([rnd(), rnd(), rnd()], i * 3); }
+  galGeo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(GN * 3), 3));
+  galGeo.setAttribute("aFrom", aFrom); galGeo.setAttribute("aTo", aTo);
+  galGeo.setAttribute("aColFrom", aColFrom); galGeo.setAttribute("aColTo", aColTo);
+  galGeo.setAttribute("aDelay", new THREE.BufferAttribute(dl, 1));
+  galGeo.setAttribute("aSize", new THREE.BufferAttribute(sz, 1));
+  galGeo.setAttribute("aRand", new THREE.BufferAttribute(rd, 3));
+  uni.uMix = { value: 1 }; uni.uAlpha = { value: .6 };
+  const galMesh = new THREE.Points(galGeo, new THREE.ShaderMaterial({
+    uniforms: { uPR: uni.uPR, uTime: uni.uTime, uMix: uni.uMix, uAlpha: uni.uAlpha },
+    transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
+    vertexShader: `
+      attribute vec3 aFrom, aTo, aColFrom, aColTo, aRand; attribute float aSize, aDelay;
+      uniform float uPR, uTime, uMix; varying vec3 vC;
+      void main(){
+        float t = clamp(uMix * 1.4 - aDelay, 0.0, 1.0); float e = t * t * (3.0 - 2.0 * t);
+        vec3 p = mix(aFrom, aTo, e) + aRand * sin(3.14159 * t) * 10.0;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0); gl_Position = projectionMatrix * mv;
+        gl_PointSize = aSize * uPR * (70.0 / -mv.z) * (.85 + .15 * sin(uTime * 2.0 + p.x * 3.0));
+        vC = mix(aColFrom, aColTo, e);
+      }`,
+    fragmentShader: `
+      uniform float uAlpha; varying vec3 vC;
+      void main(){ float d = length(gl_PointCoord - .5); float a = pow(smoothstep(.5, .0, d), 1.6);
+        gl_FragColor = vec4(vC, a * uAlpha); }`,
+  }));
+  galMesh.frustumCulled = false;
+  const gal = new THREE.Group(); gal.add(galMesh); scene.add(gal);
+
+  let curShape = 0;
+  function setShape(i, instant) {
+    if (i === curShape && !instant) return; curShape = i;
+    const S = shapes[i], mix = uni.uMix.value;
+    const f = aFrom.array, t = aTo.array, cf = aColFrom.array, ct = aColTo.array;
+    for (let k = 0; k < GN; k++) {
+      const tt = Math.min(Math.max(mix * 1.4 - dl[k], 0), 1), e = tt * tt * (3 - 2 * tt);
+      for (let c = 0; c < 3; c++) {
+        const j = k * 3 + c;
+        f[j] = instant ? S.pos[j] : f[j] + (t[j] - f[j]) * e; cf[j] = instant ? S.col[j] : cf[j] + (ct[j] - cf[j]) * e;
+        t[j] = S.pos[j]; ct[j] = S.col[j];
+      }
+    }
+    aFrom.needsUpdate = aTo.needsUpdate = aColFrom.needsUpdate = aColTo.needsUpdate = true;
+    G && gsap.killTweensOf(uni.uMix);
+    if (instant || !G) { uni.uMix.value = 1; return; }
+    uni.uMix.value = 0; gsap.to(uni.uMix, { value: 1, duration: 2.8, ease: "power2.inOut" });
+  }
+
+  function resize() {
+    const w = app.clientWidth, h = app.clientHeight; if (!w || !h) return;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(app); resize();
+
+  /* поза камеры, наклон формы, прозрачность, цвет звёзд и подсветка фона для каждого слайда */
+  const poses = [
+    { x: 0, y: 0, ry: 0, rz: 0, gz: -80, gy: 10, rx: 1.15, sc: 1, al: .85, star: [.8, .9, 1], mid: "#1d2e52" },
+    { x: 2, y: 1, ry: -.08, rz: .03, gz: -72, gy: 4, rx: .45, sc: 1.1, al: .85, star: [1, .9, .7], mid: "#4a3414" },
+    { x: -2, y: -1, ry: .08, rz: -.03, gz: -70, gy: 9, rx: 0, sc: 1.3, al: .85, star: [.85, .7, 1], mid: "#35195a" },
+    { x: 1, y: 2, ry: -.05, rz: .05, gz: -62, gy: 0, rx: 0, sc: 1, al: .85, star: [.7, 1, .9], mid: "#0f4a48" },
+    { x: -1, y: 0, ry: .06, rz: 0, gz: -68, gy: 0, rx: 0, sc: 1.1, al: .8, star: [1, .75, .55], mid: "#5a2a12" },
+    { x: 0, y: -1, ry: 0, rz: -.04, gz: -58, gy: 2, rx: 0, sc: 1.1, al: .85, star: [1, .7, .85], mid: "#5a1838" },
+    { x: 0, y: 0, ry: 0, rz: 0, gz: -58, gy: 6, rx: 1.15, sc: 1, al: .75, star: [.85, .9, 1], mid: "#2a3550" },
+    { x: 0, y: 1, ry: 0, rz: .02, gz: -48, gy: 3, rx: 1.15, sc: 1.1, al: .9, star: [1, .93, .75], mid: "#5a4a1c" },
+  ];
+  const pose = Object.assign({}, poses[0]);
+  const spin = { v: 0 };
+  world.chargeV = 0;
+  let px = 0, py = 0;
+  addEventListener("pointermove", e => { const r = app.getBoundingClientRect(); px = ((e.clientX - r.left) / r.width - .5) * 2; py = ((e.clientY - r.top) / r.height - .5) * 2; });
+
+  /* переход: форма перетекает в следующую на месте */
+  const off = { gx: 0, back: 0, cx: 0, yaw: 0, roll: 0 };
+  let lastIdx = 0, worldTl = null;
+  world.shift = (i, bump) => {
+    const idx = Math.min(i, poses.length - 1), p = poses[idx];
+    if (worldTl) { worldTl.progress(1); worldTl = null; }
+    if (!G || reduce || !bump) {
+      Object.assign(pose, p); uni.uStarCol.value.setRGB(...p.star); app.style.setProperty("--mid", p.mid); setShape(idx, true); lastIdx = idx; return;
+    }
+    lastIdx = idx;
+    gsap.to(pose, { x: p.x, y: p.y, ry: p.ry, rz: p.rz, gz: p.gz, gy: p.gy, rx: p.rx, sc: p.sc, al: p.al, duration: 2.6, ease: "power3.inOut" });
+    gsap.to(uni.uStarCol.value, { r: p.star[0], g: p.star[1], b: p.star[2], duration: 2.2 });
+    gsap.to(app, { "--mid": p.mid, duration: 2.4 });
+    setShape(idx, false);
+    gsap.killTweensOf(world.speed); gsap.fromTo(world.speed, { v: 55 }, { v: world.base, duration: 2.2, ease: "power3.out" });
+    gsap.killTweensOf(spin); gsap.fromTo(spin, { v: 1.4 }, { v: 0, duration: 2.6, ease: "power2.out" });
+  };
+  app.style.setProperty("--mid", poses[0].mid);
+  world.shift(0, false);
+
+  let t0 = performance.now();
+  (function loop(now) {
+    const dt = Math.min((now - t0) / 1000, .05); t0 = now;
+    uni.uTime.value += dt; uni.uTravel.value += world.speed.v * dt;
+    const sv = world.speed.v; uni.uStreak.value = sv > 25 ? Math.min(sv * .12, 45) : 0; lines.visible = uni.uStreak.value > .5;
+    galMesh.rotation.y += dt * (reduce ? 0 : .05 + spin.v * .35 + world.chargeV * 2.5);
+    gal.position.set(off.gx, pose.gy, pose.gz - off.back); gal.rotation.x = pose.rx; gal.scale.setScalar(pose.sc * (1 - .3 * world.chargeV)); uni.uAlpha.value = pose.al;
+    const k = 1 - Math.exp(-dt * 3);
+    camera.position.x += (pose.x + px * 2.2 + off.cx - camera.position.x) * k;
+    camera.position.y += (pose.y - py * 1.6 - camera.position.y) * k;
+    camera.rotation.set(py * .03, pose.ry - px * .05 + off.yaw, pose.rz + off.roll);
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  })(t0);
+}
+
+/* ---------- GSAP: появление и уход слайдов ---------- */
+const tls = new Map();
+const ARRIVE = 0; /* задержка текста после перехода (0 = текст появляется сразу) */
+function scramble(el, finalText, delay, dur) {
+  const pool = "0123456789ABCDEFGHJKLMNPRSTUVWXYZ";
+  const state = { p: 0 };
+  gsap.fromTo(state, { p: 0 }, { p: 1, duration: dur, delay, ease: "none",
+    onUpdate() {
+      const n = Math.floor(state.p * finalText.length);
+      el.textContent = finalText.split("").map((ch, i) => i < n || ch === " " ? ch : pool[Math.floor(Math.random() * pool.length)]).join("");
+    }, onComplete() { el.textContent = finalText; } });
+}
+function gIn(el, d = 0) {
+  tls.get(el)?.kill();
+  const lyric = [...el.querySelectorAll(".lyric")], plain = [...el.querySelectorAll(".plain")];
+  const chars = lyric.flatMap(l => [...l.querySelectorAll(".c")]), words = plain.flatMap(p => [...p.querySelectorAll(".w")]);
+  const ticket = el.querySelector(".ticket");
+  const others = [...el.children].filter(c => c.classList.contains("line") && !c.matches(".lyric, .plain, .tw"));
+  const tl = gsap.timeline({ delay: d }); tls.set(el, tl);
+  tl.set(el, { autoAlpha: 1, scale: 1, filter: "none" }, 0);
+  let t = .1;
+  if (chars.length) {
+    tl.fromTo(chars, { opacity: 0, y: 70, rotationX: -100, scale: .8, filter: "blur(14px)", transformOrigin: "50% 100% -30", transformPerspective: 700 },
+      { opacity: 1, y: 0, rotationX: 0, scale: 1, filter: "blur(0px)", duration: 1.1, stagger: .04, ease: "expo.out", clearProps: "filter" }, t);
+    t += chars.length * .04 * .55 + .45;
+    tl.fromTo(lyric, { textShadow: "0 0 18px rgba(169,200,255,.25)" },
+      { textShadow: "0 0 40px rgba(200,222,255,.95)", duration: 2.2, ease: "sine.inOut", yoyo: true, repeat: -1 }, 1.2);
+  }
+  if (words.length) tl.fromTo(words, { opacity: 0, y: 18, filter: "blur(8px)" },
+    { opacity: 1, y: 0, filter: "blur(0px)", duration: .8, stagger: .05, ease: "power3.out", clearProps: "filter" }, t);
+  if (ticket) {
+    gsap.set(ticket, { transformPerspective: 900 });
+    tl.fromTo(ticket, { rotationX: -85, y: 60, scale: .85, opacity: 0 }, { rotationX: 0, y: 0, scale: 1, opacity: 1, duration: 1.5, ease: "expo.out" }, .1);
+    scramble($("#fDate"), CONFIG.date, d + .7, .9); scramble($("#fTime"), CONFIG.time, d + .9, .8); scramble($("#fPlace"), CONFIG.place, d + 1.0, 1);
+  }
+  if (others.length) tl.fromTo(others, { opacity: 0, y: 50, scale: .92 }, { opacity: 1, y: 0, scale: 1, duration: .9, stagger: .2, ease: "back.out(1.5)" }, t + (words.length ? .3 : .6));
+}
+function gOut(el) {
+  tls.get(el)?.kill();
+  gsap.to(el, { autoAlpha: 0, scale: .94, filter: "blur(10px)", duration: .55, ease: "power2.in", overwrite: true,
+    onComplete: () => gsap.set(el, { scale: 1, filter: "none" }) });
+}
+
+/* ---------- переключение слайдов ---------- */
+let cur = -1, timer = null, celebrate = false;
+function go(i) {
+  i = Math.max(0, Math.min(slides.length - 1, i));
+  clearTimeout(timer);
+  const prev = cur; cur = i;
+  slides.forEach((s, k) => s.classList.toggle(G ? "on" : "show", k === i));
+  const d = G && !reduce && prev >= 0 ? ARRIVE : 0;
+  if (G) { if (prev >= 0 && prev !== i) gOut(slides[prev]); gIn(slides[i], d); }
+  world.shift(i, prev >= 0);
+  barEls.forEach((b, k) => {
+    b.classList.remove("active", "done"); void b.offsetWidth;
+    if (k < i) b.classList.add("done"); else if (k === i) { b.style.animationDuration = (5500 + d * 1000) + "ms"; b.classList.add("active"); }
+  });
+  $("#hint").classList.toggle("hidden", i >= AUTO_SLIDES);
+  if (i < AUTO_SLIDES) timer = setTimeout(() => go(cur + 1), 5500 + d * 1000);
+}
+
+app.addEventListener("click", e => {
+  const r = app.getBoundingClientRect();
+  sparkle(e.clientX - r.left, e.clientY - r.top, 14);
+  if (cur >= AUTO_SLIDES || cur < 0 || e.target.closest("button, a")) return;
+  go((e.clientX - r.left) < r.width * 0.33 ? cur - 1 : cur + 1);
+  startMusic();
+});
+
+/* ---------- музыка ---------- */
+const audio = $("#song"); let playing = false;
+function setSound(on) { playing = on; $("#sound").classList.toggle("playing", on); $("#soundTxt").textContent = on ? "играет" : "🔊 коснись — включится музыка"; }
+function startMusic(v) { if (playing) return Promise.resolve(); audio.volume = v == null ? .6 : v; return audio.play().then(() => setSound(true)).catch(() => {}); }
+audio.addEventListener("error", () => $("#sound").classList.add("hidden"));
+
+/* ---------- кнопки ---------- */
+const no = $("#no"); let tries = 0;
+const labels = ["Подумаю", "Точно?", "Ну пожалуйста", "Эта кнопка просто декор", "Тут только один правильный ответ", "Michael расстроится", "Ладно, нажми «Я иду» 😄"];
+function dodge(e) {
+  e.preventDefault(); e.stopPropagation();
+  tries++;
+  no.textContent = labels[Math.min(tries, labels.length - 1)];
+  const x = (Math.random() - .5) * 220, y = (Math.random() - .5) * 240, rot = (Math.random() - .5) * 20;
+  if (G) gsap.to(no, { x, y, rotation: rot, duration: .7, ease: "elastic.out(1,.55)", overwrite: true });
+  else no.style.transform = `translate(${x}px, ${y}px) rotate(${rot}deg)`;
+}
+no.addEventListener("mouseenter", dodge);
+no.addEventListener("touchstart", dodge, { passive: false });
+no.addEventListener("click", dodge);
+/* «Я иду»: праздник и кнопка для ответа в Telegram */
+const pick = $("#pick"), yes = $("#yes"), askTitle = $("#askTitle"), askText = $("#askText"), answer = $("#answer"), tg = $("#tgLink");
+yes.addEventListener("click", e => {
+  e.stopPropagation();
+  if (!sel.date || !sel.time) {   /* пока не выбрано, подсказываем и трясём */
+    const lab = $("#pickLabel"); lab.textContent = !sel.date ? "Сначала выбери день 🙂" : "Теперь выбери время 🙂"; lab.classList.add("warn");
+    if (G) gsap.fromTo("#pick", { x: -10 }, { x: 0, duration: .8, ease: "elastic.out(1,.3)" });
+    return;
+  }
+  startMusic(); clearTimeout(timer);
+  celebrate = true; burst();
+  tg.href = `https://t.me/${CONFIG.telegram}?text=${encodeURIComponent(`Я иду! 🥂 ${sel.date}, в ${sel.time}. ${CONFIG.place}`)}`;
+  const swap = () => {
+    askTitle.textContent = "See you soon."; askText.innerHTML = `Жду тебя 🥂<br>${sel.date}, ${sel.time}<br>${CONFIG.place}`;
+    answer.classList.add("hidden"); pick.classList.add("hidden"); tg.classList.remove("hidden");
+    if (G) gsap.fromTo([askTitle, askText, tg], { opacity: 0, y: 24 }, { opacity: 1, y: 0, duration: .9, stagger: .18, ease: "power3.out" });
+  };
+  if (G) { tls.get($("#askSlide"))?.kill(); gsap.to([askTitle, askText, pick, answer], { opacity: 0, y: -20, duration: .4, onComplete: swap }); } else swap();
+});
+
+/* кнопка «Я иду» чуть притягивается к пальцу/курсору */
+const yX = G ? gsap.quickTo(yes, "x", { duration: .5, ease: "power3" }) : null;
+const yY = G ? gsap.quickTo(yes, "y", { duration: .5, ease: "power3" }) : null;
+$("#askSlide").addEventListener("pointermove", e => {
+  if (!G) return;
+  const b = yes.getBoundingClientRect(), dx = e.clientX - (b.left + b.width / 2), dy = e.clientY - (b.top + b.height / 2);
+  if (Math.hypot(dx, dy) < 150) { yX(dx * .22); yY(dy * .3); } else { yX(0); yY(0); }
+});
+$("#askSlide").addEventListener("pointerleave", () => { if (G) { yX(0); yY(0); } });
+
+/* ---------- световое пятно за курсором (на компьютере) ---------- */
+if (G) {
+  const glow = $("#glow"); gsap.set(glow, { xPercent: -50, yPercent: -50 });
+  const gx = gsap.quickTo(glow, "x", { duration: .5, ease: "power3" }), gy = gsap.quickTo(glow, "y", { duration: .5, ease: "power3" });
+  app.addEventListener("pointermove", e => {
+    if (e.pointerType !== "mouse") return;
+    const r = app.getBoundingClientRect(); gx(e.clientX - r.left); gy(e.clientY - r.top); gsap.to(glow, { opacity: 1, duration: .6, overwrite: "auto" });
+  });
+  app.addEventListener("pointerleave", () => gsap.to(glow, { opacity: 0, duration: .6 }));
+}
+
+/* ---------- эффекты: искры, конфетти, перья ---------- */
+const fx = $("#fx"), fc = fx.getContext("2d");
+function size() { fx.width = fx.clientWidth * dpr; fx.height = fx.clientHeight * dpr; }
+addEventListener("resize", size); size();
+let parts = [];
+function sparkle(x, y, n = 10) {
+  if (reduce) return;
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * 6.28, v = (Math.random() * 3 + 1) * dpr;
+    parts.push({ k: "s", x: x * dpr, y: y * dpr, vx: Math.cos(a) * v, vy: Math.sin(a) * v, r: (Math.random() * 2 + 1) * dpr, c: "#dbe7ff", life: 1, d: .03 });
+  }
+}
+function burst() {
+  if (reduce) return;
+  const colors = ["#ffffff", "#dbe7ff", "#a9c8ff", "#6f93d6", "#e9eef7"];
+  for (let i = 0; i < 160; i++) parts.push({
+    k: "c", x: fx.width / 2, y: fx.height * .55, r: (Math.random() * 6 + 3) * dpr,
+    vx: (Math.random() - .5) * 18 * dpr, vy: (-Math.random() * 18 - 6) * dpr,
+    c: colors[i % colors.length], a: Math.random() * 6, va: (Math.random() - .5) * .4, life: 1, d: .006 });
+}
+let last = 0;
+function frame(t) {
+  const dt = Math.min((t - last) / 16.7 || 1, 3); last = t;
+  fc.clearRect(0, 0, fx.width, fx.height);
+  if (!reduce && celebrate && Math.random() < .12)
+    parts.push({ k: "p", x: Math.random() * fx.width, y: -20 * dpr, r: (Math.random() * 5 + 6) * dpr, vx: 0, vy: (Math.random() * 1 + .6) * dpr, a: Math.random() * 6, va: (Math.random() - .5) * .05, life: 1, d: .0015, c: Math.random() < .5 ? "#ffffff" : "#cfe0ff", w: Math.random() * 6 });
+  for (const p of parts) {
+    if (p.k === "c") p.vy += .5 * dpr * dt;
+    if (p.k === "p") { p.w += .035 * dt; p.vx = Math.sin(p.w) * 1.2 * dpr; }
+    p.x += p.vx * dt; p.y += p.vy * dt; p.life -= p.d * dt; if (p.a !== undefined) p.a += p.va * dt;
+    fc.save(); fc.globalAlpha = Math.max(p.life, 0) * (p.k === "p" ? .85 : 1); fc.fillStyle = p.c;
+    if (p.k === "s") { fc.shadowColor = "#a9c8ff"; fc.shadowBlur = 8 * dpr; fc.beginPath(); fc.arc(p.x, p.y, p.r, 0, 6.28); fc.fill(); }
+    else if (p.k === "p") { fc.translate(p.x, p.y); fc.rotate(p.a); fc.shadowColor = "#a9c8ff"; fc.shadowBlur = 6 * dpr; fc.beginPath(); fc.ellipse(0, 0, p.r, p.r * .3, 0, 0, 6.28); fc.fill(); }
+    else { fc.translate(p.x, p.y); fc.rotate(p.a); fc.fillRect(-p.r, -p.r / 2, p.r * 2, p.r); }
+    fc.restore();
+  }
+  parts = parts.filter(p => p.life > 0 && p.y < fx.height + 60 * dpr);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+let lastTrail = 0;
+app.addEventListener("pointermove", e => {
+  if (e.pointerType !== "mouse" || performance.now() - lastTrail < 60) return;
+  lastTrail = performance.now();
+  const r = app.getBoundingClientRect(); sparkle(e.clientX - r.left, e.clientY - r.top, 2);
+});
+
+/* ---------- обложка: зажми и держи ---------- */
+let started = false;
+const cover = $("#cover"), orb = $("#orb"), ring = $("#ring"), cTap = $("#cTap"), title = $(".c-title");
+const CIRC = 2 * Math.PI * 52; ring.style.strokeDasharray = CIRC; ring.style.strokeDashoffset = CIRC;
+const hold = { p: 0 }; let holding = false, lastTick = 0, early = 0, lastMsg = "";
+const earlyMsgs = ["Эй, не отпускай 😄", "Ну держи крепче!", "Почти получилось, ещё раз", "Я никуда не тороплюсь 🙂"];
+const say = t => { if (t !== lastMsg) { lastMsg = t; cTap.textContent = t; } };
+
+function charge() {
+  const p = hold.p;
+  ring.style.strokeDashoffset = CIRC * (1 - p);
+  world.chargeV = p; world.speed.v = world.base + p * p * 110;
+  if (playing && !started) audio.volume = Math.min(.6, .12 + p * .5);
+  gsap.set(orb, { scale: 1 + .3 * p });
+  gsap.set(title, { x: (Math.random() - .5) * p * 6, y: (Math.random() - .5) * p * 6 });
+  if (holding) say(p > .7 ? "ещё чуть-чуть…" : "держи…");
+  const tick = Math.floor(p * 14);
+  if (holding && tick !== lastTick && navigator.vibrate) navigator.vibrate(6 + tick);
+  lastTick = tick;
+}
+function press(e) {
+  if (started || holding) return;
+  holding = true; e.preventDefault();
+  startMusic(.12);
+  gsap.killTweensOf(hold);
+  gsap.to(hold, { p: 1, duration: 2.2, ease: "none", onUpdate: charge, onComplete: () => { holding = false; openInvite(); } });
+}
+function release() {
+  if (started || !holding) return;
+  holding = false; gsap.killTweensOf(hold);
+  gsap.to(hold, { p: 0, duration: .7, ease: "power2.out", onUpdate: charge });
+  say(earlyMsgs[early++ % earlyMsgs.length]);
+  gsap.fromTo(cTap, { x: -10 }, { x: 0, duration: .8, ease: "elastic.out(1,.3)" });
+  if (navigator.vibrate) navigator.vibrate(0);
+}
+function openInvite() {
+  if (started) return; started = true;
+  startMusic();
+  app.classList.remove("pre");
+  if (!G) { cover.classList.add("gone"); setTimeout(() => go(0), 500); return; }
+  if (reduce) { gsap.set(cover, { display: "none" }); go(0); return; }
+  gsap.killTweensOf(hold); gsap.killTweensOf(world.speed);
+  const tl = gsap.timeline();
+  tl.to("#cover .c-small, #cover .c-tap", { opacity: 0, y: -20, duration: .3 }, 0)
+    .to("#cover .c-title .c", { y: -50, opacity: 0, filter: "blur(12px)", stagger: .02, duration: .55, ease: "power2.in" }, 0)
+    .to(orb, { scale: 8, opacity: 0, duration: 1, ease: "power3.in" }, 0)
+    .to(world.speed, { v: 260, duration: 1, ease: "power3.in" }, 0)
+    .to(audio, { volume: .6, duration: 2 }, 0)
+    .to("#flash", { opacity: 1, duration: .3, ease: "power2.in" }, .7)
+    .add(() => { gsap.set(cover, { display: "none" }); world.chargeV = 0; go(0); }, 1)
+    .to("#flash", { opacity: 0, duration: 1.3, ease: "power2.out" }, 1.05)
+    .to(world.speed, { v: world.base, duration: 2.8, ease: "power3.out" }, 1);
+}
+if (G) {
+  cover.addEventListener("pointerdown", press);
+  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => cover.addEventListener(ev, release));
+  cover.addEventListener("contextmenu", e => e.preventDefault());
+  addEventListener("keydown", e => { if (!started && (e.key === "Enter" || e.key === " ")) openInvite(); });
+} else cover.addEventListener("click", openInvite);
+
+/* На телефонах браузер засчитывает «касание» при отпускании пальца: тогда и включаем звук */
+["pointerup", "touchend", "click", "keydown"].forEach(ev => addEventListener(ev, () => { if (!playing) startMusic(started ? .6 : .3); }, { capture: true, passive: true }));
+
+/* Если браузер вдруг разрешит автозвук, обложка пропускается сама */
+audio.volume = .6;
+let tries2 = 0;
+const autoTry = () => { if (started || ++tries2 > 20) return; startMusic().then(() => { if (playing) openInvite(); else setTimeout(autoTry, 600); }); };
+autoTry();
+
+if (G && !reduce) {
+  gsap.from("#cover .c-small", { opacity: 0, y: 20, duration: 1, delay: .2 });
+  gsap.from("#cover .c-title .c", { opacity: 0, y: 70, rotationX: -90, filter: "blur(12px)", transformOrigin: "50% 100% -30", transformPerspective: 700,
+    stagger: .045, duration: 1.3, ease: "expo.out", delay: .4, clearProps: "filter" });
+  gsap.from(orb, { scale: 0, opacity: 0, duration: 1.4, ease: "elastic.out(1,.5)", delay: 1 });
+  gsap.from(cTap, { opacity: 0, duration: 1, delay: 1.6 });
+}
+</script>
+</body>
+</html>
