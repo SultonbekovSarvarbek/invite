@@ -268,7 +268,7 @@ const CONFIG = {
   place: "Ресторан Lali",                       // место
   times: ["18:00", "19:00", "19:30", "20:00", "21:00"], // варианты времени на выбор
   days: 7,                                      // сколько дней показать на выбор
-  dateFrom: null,                               // первый день, например "2026-10-25"; null = с завтрашнего дня
+  dateFrom: null,                               // первый день, например "2026-10-25"; null = с сегодняшнего дня
   telegram: "s_sarvar",                         // твой ник в Telegram без @
 };
 /* ========================================= */
@@ -285,7 +285,7 @@ $("#askText").innerHTML = CONFIG.place;
 /* выбор даты и времени */
 const sel = { date: null, time: null };
 (function buildPicker() {
-  const start = CONFIG.dateFrom ? new Date(CONFIG.dateFrom + "T12:00:00") : (() => { const d = new Date(); d.setDate(d.getDate() + 1); return d; })();
+  const start = CONFIG.dateFrom ? new Date(CONFIG.dateFrom + "T12:00:00") : new Date();
   const dc = $("#dateChips"), tc = $("#timeChips");
   for (let i = 0; i < CONFIG.days; i++) {
     const d = new Date(start); d.setDate(start.getDate() + i);
